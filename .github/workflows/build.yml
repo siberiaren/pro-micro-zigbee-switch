@@ -8,28 +8,54 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    container:
-      image: nordicplayground/nrfconnect-sdk:v2.9-branch
     steps:
       - uses: actions/checkout@v4
         with:
           path: myrepo
 
-      - name: Debug - list repo contents
+      - name: Install system dependencies
         run: |
-          find myrepo -type f
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget \
+            python3-dev python3-pip python3-setuptools python3-wheel xz-utils file \
+            make gcc-multilib g++-multilib libsdl2-dev libmagic1
 
-      - name: Inject custom board overlay into light_switch sample
+      - name: Install west
+        run: pip3 install west
+
+      - name: Init and update NCS workspace
+        run: |
+          west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.0.1 ncs
+          cd ncs
+          west update --narrow -o=--depth=1
+
+      - name: Export Zephyr CMake package
+        working-directory: ncs
+        run: west zephyr-export
+
+      - name: Install Python requirements
+        working-directory: ncs
+        run: |
+          pip3 install -r zephyr/scripts/requirements.txt
+          pip3 install -r nrf/scripts/requirements.txt
+
+      - name: Install Zephyr SDK toolchain
+        working-directory: ncs
+        run: west sdk install --version 0.17.0 -y
+
+      - name: Inject custom board overlay
         run: |
           cp myrepo/overlay/promicro_nrf52840_nrf52840.overlay \
-             /workdir/nrf/samples/zigbee/light_switch/boards/promicro_nrf52840_nrf52840.overlay
+             ncs/nrf/samples/zigbee/light_switch/boards/promicro_nrf52840_nrf52840.overlay
+
       - name: Build firmware
-        working-directory: /workdir/nrf/samples/zigbee/light_switch
+        working-directory: ncs/nrf/samples/zigbee/light_switch
         run: |
-          west build -p always -b promicro_nrf52840/nrf52840/uf2 --build-dir /workdir/build
+          west build -p always -b promicro_nrf52840/nrf52840/uf2 --build-dir build
 
       - name: Upload UF2 artifact
         uses: actions/upload-artifact@v4
         with:
           name: zigbee-switch-uf2
-          path: /workdir/build/zephyr/zephyr.uf2
+          path: ncs/nrf/samples/zigbee/light_switch/build/zephyr/zephyr.uf2
