@@ -1,0 +1,32 @@
+name: Build Zigbee Switch Firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    container:
+      image: nordicplayground/nrfconnect-sdk:v2.9-branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: myrepo
+
+      - name: Inject custom board overlay into light_switch sample
+        run: |
+          cp myrepo/overlay/promicro_nrf52840_nrf52840.overlay \
+             /workdir/nrf/samples/zigbee/light_switch/boards/promicro_nrf52840_nrf52840.overlay
+
+      - name: Build firmware
+        working-directory: /workdir/nrf/samples/zigbee/light_switch
+        run: |
+          west build -p always -b promicro_nrf52840/nrf52840/uf2 --build-dir /workdir/build
+
+      - name: Upload UF2 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zigbee-switch-uf2
+          path: /workdir/build/zephyr/zephyr.uf2
