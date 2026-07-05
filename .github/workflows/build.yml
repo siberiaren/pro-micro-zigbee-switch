@@ -15,11 +15,14 @@ jobs:
         with:
           path: myrepo
 
+      - name: Debug - list repo contents
+        run: |
+          find myrepo -type f
+
       - name: Inject custom board overlay into light_switch sample
         run: |
           cp myrepo/overlay/promicro_nrf52840_nrf52840.overlay \
              /workdir/nrf/samples/zigbee/light_switch/boards/promicro_nrf52840_nrf52840.overlay
-
       - name: Build firmware
         working-directory: /workdir/nrf/samples/zigbee/light_switch
         run: |
